@@ -75,8 +75,8 @@ class ZstuSso:
 
     def submit(self):
         url = 'http://fangyi.zstu.edu.cn:8008/form/api/FormHandler/SubmitBusinessForm'
-        payload = {"biz": {"GUID": "092132701CCDE43C2C9340FFD", "CURRENTLOCATION": "浙江省 宁波市 慈溪市", "CURRENTSITUATION": "低风险地区", "ARRIVESTATUS": "在（入）校", "TEMPERATURESITUATION": "正常", "TEMPERATURE": "", "HEALTHCODESTATUS": "绿码", "VACCINATIONSTATUS": "已完成首轮全部针剂", "ZHJZSJ": "2021-09-22 00:00:00", "WJZYY": None, "JTYY": None, "XGYMZL": "科兴灭活疫苗", "CONFIRMEDSTATE": "无", "CONFIRMEDDATETIME": None, "CONFIRMEDQUARANTINEDATETIME": None, "CONFIRMEDRELIEVEDATETIME": None, "QUARANTINESTATUS": "未隔离", "NOTIFICATIONMODE": "", "QUARANTINEREASON": "", "QUARANTINETYPE": "", "QUARANTINELOCATION": "", "QUARANTINESTARTTIME": "", "ESTIMATEQUARANTINEENDTIME": "", "PROCESSES": "", "LIVINGHISTORYSTATUS": "无", "LIVINGHISTORYSTATUS1": "",
-                           "LIVINGHISTORYLOCATION": "", "TZRY": "否", "TZRYSM": None, "SFYHSYXBG": "未检测", "KYJCJG": "未检测", "DQXXZT": "在校学习（含科研）", "DQSZDWMC": None, "TJ_QRNR": "上述内容客观如实填写，填写人对本表真实性负责，如瞒报、虚报产生不良后果，承担相应责任。", "DKLX": "本人打卡", "CLR": "陈裕涛", "CLSJ": None, "ZHXGR": None, "XGNR": "30.21830940246582,121.31095123291016", "ZHXGSJ": None}, "task": {}, "sign": {}, "user": {"userId": "ZSTU/2019329600124", "userName": "陈裕涛", "domain": "ZSTU"}, "conf": {"bizId": "092132701CCDE43C2C9340FFD", "platform": "Weixin", "IsDraft": False, "IsDeleteDraft": False}, "form": {"formId": "1817056F47E744D3B8488B", "formName": "疫情填报（学生）"}, "approvalBtn": {"code": "Submit", "visible": True, "title": "提交", "size": "medium", "type": "primary"}}
+        payload = {"task": {}, "sign": {}, "user": {"userId": "ZSTU/2019329600124", "userName": "陈裕涛", "domain": "ZSTU"}, "conf": {"bizId": "092132701CCDE43C2C9340FFD", "platform": "Weixin", "IsDraft": False,
+                                                                                                                                   "IsDeleteDraft": False}, "form": {"formId": "1817056F47E744D3B8488B", "formName": "疫情填报（学生）"}, "approvalBtn": {"code": "Submit", "visible": True, "title": "提交", "size": "medium", "type": "primary"}}
         payload['biz'] = self.__arrange_data()
         res = self.__session.post(url, json.dumps(payload), headers={
                                   'Content-type': 'application/json'})
@@ -120,7 +120,7 @@ def main():
         if send:
             send("任务执行结果：", f"\n{stu.get_message}")
     except:
-        logger.info('❌没有设置环境变量')
+        logger.info('❌任务运行失败，请检查环境变量是否设置正确')
 
 
 env = os.environ

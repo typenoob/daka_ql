@@ -181,6 +181,7 @@ def main():
             else:
                 if send:
                     send("任务执行失败：", "\n静态检查出错")
+                break
         except Exception as e:
             logger.info(e)
             logger.info('❌任务运行失败，请检查环境变量是否设置正确')

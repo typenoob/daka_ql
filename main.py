@@ -1,8 +1,12 @@
+import hashlib
 import traceback
+import random
+import math
+import time
 from requests import Session
 from Crypto.Cipher import DES
 from Crypto.Util import Padding
-from base64 import b64encode, b64decode
+from base64 import b64encode, b64decode, urlsafe_b64encode
 from re import compile
 from urllib import parse
 import json
@@ -31,6 +35,22 @@ def load_send() -> None:
             logger.info(f"❌加载通知服务失败!!!\n{traceback.format_exc()}")
 
 
+def base64UrlEncode(data):
+    return urlsafe_b64encode(data).rstrip(b'=')
+
+
+def generateRandomString(length):
+    text = ""
+    possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    for i in range(length):
+        text += possible[math.floor(random.random() * len(possible))]
+    return text
+
+
+def generateCodeChallenge(code_verifier):
+    return base64UrlEncode(hashlib.sha256(code_verifier.encode('utf-8')).digest()).decode('utf-8')
+
+
 class ZstuSso:
     def __init__(self, username: str, password: str) -> None:
         if username == None or password == None:
@@ -57,15 +77,18 @@ class ZstuSso:
         res = self.__session.post(login_url, payload)
 
     def set_token(self):
-        code = parse.parse_qs(parse.urlparse(self.__session.get(
-            'http://fangyi.zstu.edu.cn:4500/connect/authorize?client_id=INTERNAL00000000CODE&redirect_uri=http%3A%2F%2Ffangyi.zstu.edu.cn%3A6006%2Foidc-callback&response_type=code&scope=email%20profile%20roles%20openid%20iduo.api&state=962c0c72141c4ef590c2ea47e546b7cb&code_challenge=KzJbQxDXdR2yk-yFWGfUrhGXf83VTYMzAOL6YvNmGdE&code_challenge_method=S256&acr_values=idp%3APlatform&response_mode=query').url).query)['code']
+        code_verifier = generateRandomString(96)
+        code_challenge = generateCodeChallenge(code_verifier)
+        url = f'http://fangyi.zstu.edu.cn:4500/connect/authorize?client_id=INTERNAL00000000CODE&redirect_uri=http%3A%2F%2Ffangyi.zstu.edu.cn%3A6006%2Foidc-callback&response_type=code&scope=email%20profile%20roles%20openid%20iduo.api&state=962c0c72141c4ef590c2ea47e546b7cb&code_challenge={code_challenge}&code_challenge_method=S256&acr_values=idp%3APlatform&response_mode=query'
+        code = parse.parse_qs(parse.urlparse(
+            self.__session.get(url).url).query)['code']
         payload =\
             {
                 'client_id': 'INTERNAL00000000CODE',
                 'client_secret': 'INTERNAL-b5d5-7eba-1d182998574a',
                 'code': code,
                 'redirect_uri': 'http://fangyi.zstu.edu.cn:6006/oidc-callback',
-                'code_verifier': '3e5fdab5c6d54b81a8e20d7356b5b6b1248a9dbf058d41169afc7670da5202f6a878be5cd6f1482f832c93bd7227c90f',
+                'code_verifier': code_verifier,
                 'grant_type': 'authorization_code'
             }
         res = self.__session.post(
@@ -75,21 +98,25 @@ class ZstuSso:
 
     def submit(self):
         url = 'http://fangyi.zstu.edu.cn:8008/form/api/FormHandler/SubmitBusinessForm'
-        payload = {"task": {}, "sign": {}, "user": {"userId": "ZSTU/2019329600124", "userName": "陈裕涛", "domain": "ZSTU"}, "conf": {"bizId": "092132701CCDE43C2C9340FFD", "platform": "Weixin", "IsDraft": False,
-                                                                                                                                   "IsDeleteDraft": False}, "form": {"formId": "1817056F47E744D3B8488B", "formName": "疫情填报（学生）"}, "approvalBtn": {"code": "Submit", "visible": True, "title": "提交", "size": "medium", "type": "primary"}}
+        payload = {"task": {}, "sign": {}, "conf": {"bizId": "", "platform": "Weixin", "IsDraft": False, "IsDeleteDraft": False}, "form": {
+            "formId": "1817056F47E744D3B8488B", "formName": "疫情填报（学生）"}, "approvalBtn": {"code": "Submit", "visible": True, "title": "提交", "size": "medium", "type": "primary"}}
         payload['biz'] = self.__arrange_data()
+        payload['user'] = {"userId": f"ZSTU/{self.__username}",
+                           "userName": f"{payload['biz']['NAME']}", "domain": "ZSTU"}
+        logger.info(payload['biz'])
         res = self.__session.post(url, json.dumps(payload), headers={
                                   'Content-type': 'application/json'})
-        print(res.content.decode('utf-8'))
         self.__message = res.content.decode('utf-8')
 
     def __arrange_data(self):
-        url = f'http://fangyi.zstu.edu.cn:8008/form/api/DataSource/GetDataSourceByNo?sqlNo={env.get("sqlNo")}'
+        url = f'http://fangyi.zstu.edu.cn:8008/form/api/DataSource/GetDataSourceByNo?sqlNo={b64encode(f"ZJDK_XS${self.__username}".encode("utf-8")).decode("utf-8")}'
         res = json.loads(self.__session.get(url).text)
-        res['data'][0]['CURRENTDATE'] = str(datetime.datetime.strptime(
-            res['data'][0]['CURRENTDATE'], '%Y-%m-%d %H:%M:%S')+datetime.timedelta(days=1))
-        res['data'][0]['CURRENTTIME'] = str(datetime.datetime.strptime(
-            res['data'][0]['CURRENTTIME'], '%Y-%m-%d %H:%M:%S')+datetime.timedelta(days=1))
+        # res['data'][0]['CURRENTDATE'] = str(datetime.datetime.strptime(
+        #     res['data'][0]['CURRENTDATE'], '%Y-%m-%d %H:%M:%S')+datetime.timedelta(days=1))
+        res['data'][0]['CURRENTTIME'] = datetime.datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S')
+        res['data'][0]['CURRENTDATE'] = datetime.datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S')
         return(res['data'][0])
 
     def get_session(self):
@@ -97,6 +124,29 @@ class ZstuSso:
 
     def get_message(self):
         return self.__message
+
+    def static_check(self):
+        url = 'http://fangyi.zstu.edu.cn:8008/form/api/FormHandler/GetFormInfo?formId=1817056F47E744D3B8488B&bizId='
+        res = json.loads(self.__session.post(
+            url, headers={
+                'Content-type': 'application/json'}).text)
+        result = res['data']['formConfiguration'] == json.load(
+            open("memory.txt", "r"))
+        json.dump(res['data']['formConfiguration'], open("memory.txt", "w"))
+        return result
+
+    def check(self) -> bool:
+        url = f'http://fangyi.zstu.edu.cn:8008/form/api/DataSource/GetDataSourceByNo?sqlNo={b64encode(f"JTDK_XS${self.__username}".encode("utf-8")).decode("utf-8")}'
+        res = json.loads(self.__session.get(url).text)
+        logger.info('Checking data:{}'.format(res))
+        if len(res['data']) == 0:
+            return False
+        unix_dtime = int(time.mktime(datetime.date.today().timetuple()))
+        unix_ctime = int(time.mktime(time.strptime(
+            res['data'][0]['CURRENTDATE'], '%Y-%m-%d %H:%M:%S')))
+        logger.info('unix_dtime: {}, unix_ctime:{}'.format(
+            unix_dtime, unix_ctime))
+        return True if unix_dtime <= unix_ctime else False
 
     def __get_execution_and_crypto(self, data: str):
         execution_pat = compile('<p id="login-page-flowkey">(.*?)</p>')
@@ -111,18 +161,30 @@ class ZstuSso:
 
 
 def main():
-    try:
-        stu = ZstuSso(env.get('sno'), env.get('password'))
-        stu.login()
-        stu.set_token()
-        stu.submit()
-        load_send()
-        if send:
-            send("任务执行结果：", f"\n{stu.get_message}")
-    except:
-        logger.info('❌任务运行失败，请检查环境变量是否设置正确')
+    zstu = os.environ.get('zstu').split(';')
+    list = [{zstu[i].split('=')[0]: zstu[i].split('=')[1], zstu[i+1].split('=')[0]: zstu[i+1].split('=')[1]}
+            for i in range(0, len(zstu)-1, 2)]
+    load_send()
+    for pair in list:
+        try:
+            logger.info(f"打卡账号：{pair}")
+            stu = ZstuSso(pair['sno'], pair['password'])
+            stu.login()
+            stu.set_token()
+            if (stu.check()):
+                if send:
+                    send(f"任务执行结果({pair['sno']}):", "\n已经打过卡了")
+            elif stu.static_check():
+                stu.submit()
+                if send:
+                    send(f"任务执行结果({pair['sno']}):", f"\n{stu.get_message()}")
+            else:
+                if send:
+                    send("任务执行失败：", "\n静态检查出错")
+        except Exception as e:
+            logger.info(e)
+            logger.info('❌任务运行失败，请检查环境变量是否设置正确')
 
 
-env = os.environ
 if __name__ == '__main__':
     main()

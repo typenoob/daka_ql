@@ -161,6 +161,7 @@ class ZstuSso:
 
 
 def main():
+    #os.environ['zstu']="sno=xxxx;password=xxxx;"
     zstu = os.environ.get('zstu').split(';')
     list = [{zstu[i].split('=')[0]: zstu[i].split('=')[1], zstu[i+1].split('=')[0]: zstu[i+1].split('=')[1]}
             for i in range(0, len(zstu)-1, 2)]

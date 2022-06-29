@@ -6,4 +6,4 @@
 1.填写环境变量
 ```os.environ['zstu']="sno=xxxx;password=xxxx;"```
 
-2.运行main.py（第一次运行会出现静态检查出错的提示，再次运行即可）
+2.运行main.py（首次运行会出现静态检查出错的提示，再次运行即可）

@@ -1,6 +1,10 @@
 # daka_ql
 浙江理工大学打卡 based on 青龙面板
 
+## 依赖清单
+
+- pycryptodome
+
 ## 使用方法
 
 1.填写环境变量
